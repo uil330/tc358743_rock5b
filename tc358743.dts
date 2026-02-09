@@ -1,0 +1,176 @@
+/dts-v1/;
+/plugin/;
+
+/ {
+	metadata {
+		title = "Enable TC358743 HDMI-In on CAM0";
+		compatible = "radxa,rock-5b", "radxa,rock-5b-plus"; 
+		category = "camera";
+		exclusive = "csi2_dphy0";
+		description = "Enable TC358743 HDMI-to-CSI bridge on CAM0 (4-Lane).";
+	};
+};
+
+&{/} {
+	clk_tc358743: external-tc358743-clock {
+		status = "okay";
+		compatible = "fixed-clock";
+		clock-frequency = <27000000>; 
+		clock-output-names = "clk_tc358743";
+		#clock-cells = <0>;
+	};
+	camera_pwdn_gpio: camera-pwdn-gpio {
+		status = "okay";
+		compatible = "regulator-fixed";
+		regulator-name = "camera_pwdn_gpio";
+		regulator-always-on;
+		regulator-boot-on;
+		enable-active-high;
+		// gpio = <&gpio3 RK_PC6 GPIO_ACTIVE_HIGH>  // Commented so no included needed.
+		gpio = <&gpio3 22 0>;
+	};
+};
+
+&i2c3 {
+	status = "okay";
+	#address-cells = <1>;
+	#size-cells = <0>;
+
+	tc358743: tc358743@0f {
+		compatible = "toshiba,tc358743";
+		reg = <0x0f>;
+		clocks = <&clk_tc358743>;
+		status = "okay";
+		//clocks = <&hdmi_osc>;
+		clock-names = "refclk";
+
+		rockchip,camera-module-index = <0>;
+		rockchip,camera-module-facing = "back";
+		rockchip,camera-module-name = "tc358743";
+		rockchip,camera-module-lens-name = "default";
+		
+		//reset-gpios = <&gpio1 RK_PB0 GPIO_ACTIVE_LOW>;
+		//reset-gpios = <&gpio6 9 GPIO_ACTIVE_LOW>;
+  		//interrupt-parent = <&gpio2>;
+		//interrupts = <5 IRQ_TYPE_LEVEL_HIGH>;
+
+		/* 链路起点：输出给 DPHY */
+		port {
+			tc358743_out: endpoint {
+				remote-endpoint = <&mipidphy0_in_tc358743>;
+				data-lanes = <1 2 3 4>;
+				clock-lanes = <0>;
+				clock-noncontinuous;
+				link-frequencies = /bits/ 64 <297000000>;
+			};
+		};
+	};
+};
+
+&csi2_dphy0_hw {
+	status = "okay";
+};
+
+&csi2_dphy0 {
+	status = "okay";
+
+	ports {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		port@0 {
+			reg = <0>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			mipidphy0_in_tc358743: endpoint@1 {
+				reg = <1>; 
+				remote-endpoint = <&tc358743_out>;
+				data-lanes = <1 2 3 4>; 
+			};
+		};
+
+		port@1 {
+			reg = <1>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			csidphy0_out: endpoint@0 {
+				reg = <0>;
+				remote-endpoint = <&mipi2_csi2_input>;
+			};
+		};
+	};
+};
+
+&mipi2_csi2 {
+	status = "okay";
+
+	ports {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		port@0 {
+			reg = <0>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			mipi2_csi2_input: endpoint@1 {
+				reg = <1>;
+				remote-endpoint = <&csidphy0_out>;
+			};
+		};
+
+		port@1 {
+			reg = <1>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			mipi2_csi2_output: endpoint@0 {
+				reg = <0>;
+				remote-endpoint = <&cif_mipi2_in0>;
+			};
+		};
+	};
+};
+
+&rkcif {
+	status = "okay";
+};
+
+&rkcif_mipi_lvds2 {
+	status = "okay";
+
+	port {
+		cif_mipi2_in0: endpoint {
+			remote-endpoint = <&mipi2_csi2_output>;
+		};
+	};
+};
+
+&rkcif_mipi_lvds2_sditf {
+	status = "okay";
+	port {
+		mipi_lvds2_sditf: endpoint {
+			remote-endpoint = <&isp0_vir0>;
+		};
+	};
+};
+
+&rkcif_mmu { status = "okay"; };
+&isp0_mmu { status = "okay"; };
+&rkisp0 { status = "okay"; };
+
+&rkisp0_vir0 {
+	status = "okay";
+	port {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		isp0_vir0: endpoint@0 {
+			reg = <0>;
+			remote-endpoint = <&mipi_lvds2_sditf>;
+		};
+	};
+};
+
