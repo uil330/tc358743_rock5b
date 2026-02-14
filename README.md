@@ -18,7 +18,7 @@ sudo cp ./tc358743-cam0.dtbo /boot/dtbo/
 
 说明：
 - 第一行将 `tc358743.dts` 编译为覆盖文件 `tc358743.dtbo`
-- 第二行将 `tc358743-cam0.dtbo` 放入 `/boot/dtbo/`（如仅生成了 `tc358743.dtbo`，请将该文件复制到 `/boot/dtbo/`，并在后续 `fdtoverlays` 使用对应文件名）
+- 第二行将 `tc358743.dtbo` 放入 `/boot/dtbo/`
 
 ### 2. 配置 extlinux 以启用覆盖
 编辑 `/boot/extlinux/extlinux.conf`，将设备树覆盖加入 `fdtoverlays`。例如：
@@ -32,33 +32,15 @@ label kernel-$(uname -r)
 
 保存后重启，使覆盖生效。
 
-### 3. 下载内核并安装 TC358743 驱动模块
-拉取内核源码并使用当前运行内核的配置：
-
-```bash
-git clone https://github.com/radxa/kernel.git
-# 切换到kernel对应版本的分支
-cd kernel
-zcat /proc/config.gz > .config
-make menuconfig
-# 在菜单中将 tc358743 设置为 M（模块）
-cp /usr/src/linux-headers-$(uname -r)/Module.symvers .
-make modules_prepare
-make -j4 M=drivers/media/i2c/ modules
-sudo cp drivers/media/i2c/tc358743.ko /lib/modules/$(uname -r)/kernel/drivers/media/i2c/
-sudo depmod -a
-```
-
-## 验证与排查
+### 3.  验证与排查
 - 验证设备树覆盖是否生效：
   - `dmesg` 中应出现与 tc358743 相关的绑定与 I2C 初始化日志
-  - `/sys/bus/i2c/devices/` 下可见对应设备节点
+  - `media-ctl -p -d /dev/media0` 下可见对应设备节点
 - 验证视频设备：
-  - 安装 `v4l2-ctl` 后查看设备与格式
+  - 执行 `gst-launch-1.0 v4l2src device=/dev/video0   do-timestamp=true  ! 'video/x-raw,format=NV12,width=1920,height=1080,framerate=30/1' !    queue   ! mpph264enc bps=500000 rc-mode=cbr ! h264parse config-interval=-1  ! mpegtsmux ! udpsink host=x.x.x.x port=xxxx` 
 
-```bash
-media-ctl -p -d /dev/media0 // 查看设备树是否正常
-v4l2-ctl --list-devices // 查看视频设备是否正常出现
-v4l2-ctl -d /dev/video0 --all
-```
+### 4. 注意事项
+
+- Rock5B理论上能使用4Line,但是实际上只能用2Line.不知道是硬件限制还是个体问题,需要后续排查
+- 理论上支持UYVY,但是实际上只能用NV12,需要后续查看是Rockchip的架构特性还是带宽问题
 

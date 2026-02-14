@@ -1,6 +1,7 @@
 /dts-v1/;
 /plugin/;
 
+
 / {
 	metadata {
 		title = "Enable TC358743 HDMI-In on CAM0";
@@ -15,21 +16,22 @@
 	clk_tc358743: external-tc358743-clock {
 		status = "okay";
 		compatible = "fixed-clock";
-		clock-frequency = <27000000>; 
+		clock-frequency = <27000000>;
 		clock-output-names = "clk_tc358743";
 		#clock-cells = <0>;
 	};
 	camera_pwdn_gpio: camera-pwdn-gpio {
 		status = "okay";
 		compatible = "regulator-fixed";
-		regulator-name = "camera_pwdn_gpio";
+		regulator-name = "tc358743_power";
 		regulator-always-on;
 		regulator-boot-on;
 		enable-active-high;
-		// gpio = <&gpio3 RK_PC6 GPIO_ACTIVE_HIGH>  // Commented so no included needed.
-		gpio = <&gpio3 22 0>;
+		gpio = <&gpio1 8 0>;
 	};
+
 };
+
 
 &i2c3 {
 	status = "okay";
@@ -40,28 +42,44 @@
 		compatible = "toshiba,tc358743";
 		reg = <0x0f>;
 		clocks = <&clk_tc358743>;
+		//clocks = <&cru 361>;
 		status = "okay";
 		//clocks = <&hdmi_osc>;
 		clock-names = "refclk";
+
+		pinctrl-names = "default";
+        	pinctrl-0 = <&mipi_mclk0_pin>;
 
 		rockchip,camera-module-index = <0>;
 		rockchip,camera-module-facing = "back";
 		rockchip,camera-module-name = "tc358743";
 		rockchip,camera-module-lens-name = "default";
-		
-		//reset-gpios = <&gpio1 RK_PB0 GPIO_ACTIVE_LOW>;
-		//reset-gpios = <&gpio6 9 GPIO_ACTIVE_LOW>;
-  		//interrupt-parent = <&gpio2>;
-		//interrupts = <5 IRQ_TYPE_LEVEL_HIGH>;
 
-		/* 链路起点：输出给 DPHY */
+/*
+		rockchip,lineinitcnt = <0x0e80>;
+		rockchip,lptxtimecnt = <3>;
+		rockchip,tclk-headercnt = <0x1408>;
+		rockchip,tclk-trailcnt = <10>;
+		rockchip,ths-headercnt = <0x0C06>;
+		rockchip,twakeup = <0x4882>;
+		rockchip,tclk-postcnt = <12>;
+		rockchip,ths-trailcnt = <10>;
+		rockchip,hstxvregcnt = <0>;
+*/		
+		pwdn-gpios = <&gpio1 8 0>;
+		reset-gpios = <&gpio4 0 1>;
+		power-domains = <&power 9>;
+  		//interrupt-parent = <&gpio4>;
+		//interrupts = <0 8>;
+		//vin-supply = <&camera_pwdn_gpio>;
+
 		port {
 			tc358743_out: endpoint {
 				remote-endpoint = <&mipidphy0_in_tc358743>;
-				data-lanes = <1 2 3 4>;
+				data-lanes = <1 2>;
 				clock-lanes = <0>;
 				clock-noncontinuous;
-				link-frequencies = /bits/ 64 <297000000>;
+				link-frequencies = /bits/ 64 <297000000>; // 594000000  297000000
 			};
 		};
 	};
@@ -83,10 +101,10 @@
 			#address-cells = <1>;
 			#size-cells = <0>;
 
-			mipidphy0_in_tc358743: endpoint@1 {
-				reg = <1>; 
+			mipidphy0_in_tc358743: endpoint@0 {
+				reg = <0>; 
 				remote-endpoint = <&tc358743_out>;
-				data-lanes = <1 2 3 4>; 
+				data-lanes = <1 2>; 
 			};
 		};
 
@@ -172,5 +190,13 @@
 			remote-endpoint = <&mipi_lvds2_sditf>;
 		};
 	};
+};
+
+&pinctrl {
+    cam_mclk {
+        mipi_mclk0_pin: mipi-mclk0-pin {
+            rockchip,pins = <1 30 1 &pcfg_pull_none>;
+        };
+    };
 };
 
